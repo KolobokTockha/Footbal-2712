@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>FC Mobile - Симуляция сезона</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            font-family: 'Poppins', 'Segoe UI', 'Impact', 'Arial Black', sans-serif;
+            overflow: hidden;
+        }
+
+        .game-screen {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background-image: url('Снимок экрана (3)-fotor-2026032119580.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow-y: auto;
+        }
+
+        .overlay-dark {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.5) 100%);
+            z-index: 1;
+        }
+
+        .game-content {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 1600px;
+            padding: 2rem;
+            animation: fadeInUp 0.6s ease forwards;
+            display: flex;
+            gap: 2rem;
+        }
+
+        /* Левая колонка - основной контент */
+        .main-content {
+            flex: 2;
+        }
+
+        /* Правая колонка - календарь и рейтинг */
+        .right-sidebar {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Блок рейтинга игрока */
+        .player-rating-card {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(15px);
+            border-radius: 30px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            text-align: center;
+        }
+
+        .rating-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #ffcc33;
+            margin-bottom: 1rem;
+            font-family: 'Impact', 'Arial Black', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .rating-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.8rem;
+            margin-bottom: 1rem;
+        }
+
+        .rating-stat {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 15px;
+            padding: 0.6rem;
+        }
+
+        .rating-stat-name {
+            font-size: 0.75rem;
+            color: #aaa;
+            text-transform: uppercase;
+        }
+
+        .rating-stat-value {
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: #2ecc71;
+            font-family: monospace;
+        }
+
+        .overall-rating {
+            background: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,170,0,0.1));
+            border-radius: 20px;
+            padding: 0.8rem;
+            margin-top: 0.5rem;
+            border: 1px solid rgba(255,215,0,0.5);
+        }
+
+        .overall-rating span:first-child {
+            font-size: 0.9rem;
+            color: #ffcc77;
+        }
+
+        .overall-rating span:last-child {
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: #ffaa00;
+            margin-left: 0.5rem;
+        }
+
+        /* Календарь */
+        .calendar-sidebar {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(15px);
+            border-radius: 30px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .calendar-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #ffcc33;
+            text-align: center;
+            margin-bottom: 1rem;
+            font-family: 'Impact', 'Arial Black', sans-serif;
+        }
+
+        .calendar-months {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .calendar-month {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
+            padding: 0.7rem;
+            transition: all 0.2s ease;
+            border-left: 3px solid #ffcc33;
+        }
+
+        .calendar-month.current {
+            background: linear-gradient(135deg, rgba(255,215,0,0.3), rgba(255,170,0,0.2));
+            border-left: 3px solid #ffaa00;
+        }
+
+        .calendar-month.completed {
+            border-left-color: #2ecc71;
+        }
+
+        .calendar-month:hover {
+            transform: translateX(5px);
+            background: rgba(255,215,0,0.2);
+        }
+
+        .month-name {
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #ffdd77;
+        }
+
+        .month-progress {
+            font-size: 0.7rem;
+            color: #aaa;
+        }
+
+        .month-status {
+            font-size: 0.65rem;
+            color: #2ecc71;
+            margin-top: 0.2rem;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Заголовок */
+        .season-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .month-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #ffcc33, #ffaa00);
+            padding: 0.6rem 1.5rem;
+            border-radius: 60px;
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: #1e2a1c;
+            text-shadow: 1px 1px 0 #ffdd77;
+            font-family: 'Impact', 'Arial Black', sans-serif;
+        }
+
+        .games-progress {
+            font-size: 1rem;
+            color: #ddd;
+            margin-top: 0.5rem;
+        }
+
+        /* Статистика игрока */
+        .player-stats {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border-radius: 25px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.8rem;
+            text-align: center;
+            border: 1px solid rgba(255,215,0,0.3);
+        }
+
+        .stat-item {
+            padding: 0.3rem;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #ffcc77;
+            text-transform: uppercase;
+        }
+
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: #2ecc71;
+            font-family: monospace;
+        }
+
+        /* Сетка матчей */
+        .matches-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.8rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .match-card {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 0.8rem;
+            text-align: center;
+            border: 1px solid rgba(255,215,0,0.3);
+        }
+
+        .match-card.played {
+            border-color: #2ecc71;
+            background: rgba(46,204,113,0.2);
+        }
+
+        .match-number {
+            font-size: 0.75rem;
+            color: #ffcc77;
+        }
+
+        .match-result {
+            font-size: 1.1rem;
+            font-weight: 900;
+            color: #fff;
+        }
+
+        .match-score {
+            font-size: 0.9rem;
+            color: #2ecc71;
+        }
+
+        /* Кнопки */
+        .simulate-btn {
+            display: block;
+            width: 100%;
+            padding: 0.9rem;
+            font-size: 1.1rem;
+            font-weight: bold;
+            font-family: 'Impact', 'Arial Black', sans-serif;
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            border: none;
+            border-radius: 50px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            margin-bottom: 0.8rem;
+        }
+
+        .simulate-btn:hover {
+            transform: scale(1.02);
+        }
+
+        .simulate-btn:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .music-btn {
+            display: block;
+            width: 100%;
+            padding: 0.7rem;
+            font-size: 0.9rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            border: none;
+            border-radius: 50px;
+            color: white;
+            cursor: pointer;
+            margin-bottom: 0.8rem;
+        }
+
+        .music-btn.hidden {
+            display: none;
+        }
+
+        .back-btn {
+            display: block;
+            width: 100%;
+            padding: 0.7rem;
+            font-size: 0.9rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #e67e22, #f39c12);
+            border: none;
+            border-radius: 50px;
+            color: white;
+            cursor: pointer;
+        }
+
+        /* Модальное окно */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #1a2a1a, #0a1a0a);
+            border-radius: 40px;
+            padding: 1.5rem;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            border: 2px solid gold;
+        }
+
+        .modal-content h2 {
+            font-size: 1.5rem;
+            color: gold;
+        }
+
+        .award-item {
+            background: rgba(0,0,0,0.5);
+            margin: 0.8rem 0;
+            padding: 0.8rem;
+            border-radius: 20px;
+        }
+
+        .award-name {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #ffcc33;
+        }
+
+        .close-modal {
+            margin-top: 1rem;
+            padding: 0.6rem 1.5rem;
+            background: #e67e22;
+            border: none;
+            border-radius: 30px;
+            color: white;
+            cursor: pointer;
+        }
+
+        @media (max-width: 1000px) {
+            .game-content {
+                flex-direction: column;
+            }
+            .right-sidebar {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+            .player-rating-card, .calendar-sidebar {
+                flex: 1;
+                min-width: 250px;
+            }
+            .rating-stats {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 700px) {
+            .rating-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .matches-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="game-screen">
+    <div class="overlay-dark"></div>
+    
+    <div class="game-content">
+        <!-- Левая колонка -->
+        <div class="main-content">
+            <div class="season-header">
+                <div class="month-badge" id="monthDisplay">ЯНВАРЬ</div>
+                <div class="games-progress" id="progressDisplay">Матчи: 0 / 4</div>
+            </div>
+
+            <div class="player-stats">
+                <div class="stat-item">
+                    <div class="stat-label">ГОЛЫ</div>
+                    <div class="stat-number" id="goalsStat">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">ГОЛЕВЫЕ ПАСЫ</div>
+                    <div class="stat-number" id="assistsStat">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">СУХИЕ МАТЧИ</div>
+                    <div class="stat-number" id="cleanSheetsStat">0</div>
+                </div>
+            </div>
+
+            <div class="matches-grid" id="matchesGrid"></div>
+
+            <button class="simulate-btn" id="simulateBtn">▶ СЫГРАТЬ МАТЧ</button>
+            <button class="music-btn" id="musicBtn">🎵 ВКЛЮЧИТЬ МУЗЫКУ</button>
+            <button class="back-btn" id="backToMenuBtn">◀ ВЕРНУТЬСЯ В МЕНЮ</button>
+        </div>
+
+        <!-- Правая колонка -->
+        <div class="right-sidebar">
+            <!-- Блок рейтинга игрока -->
+            <div class="player-rating-card">
+                <div class="rating-title">
+                    ⚡ ХАРАКТЕРИСТИКИ ИГРОКА ⚡
+                </div>
+                <div class="rating-stats" id="ratingStats">
+                    <!-- Заполняется через JS -->
+                </div>
+                <div class="overall-rating">
+                    <span>ОБЩИЙ РЕЙТИНГ</span>
+                    <span id="overallRating">0</span>
+                </div>
+            </div>
+
+            <!-- Календарь -->
+            <div class="calendar-sidebar">
+                <div class="calendar-title">📅 КАЛЕНДАРЬ СЕЗОНА</div>
+                <div class="calendar-months" id="calendarMonths"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<audio id="bgMusic" preload="auto">
+    <source src="Generation_Love___New_EA_FC_Mobile_26_soundtrack___2nd_Anniversary_event___Full_version.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+    // ========== ХАРАКТЕРИСТИКИ ИГРОКА ==========
+    function randomStat() {
+        return Math.floor(Math.random() * 11) + 60; // 60-70
+    }
+    
+    // Генерируем характеристики при первом запуске
+    let playerStats = JSON.parse(localStorage.getItem('fcPlayerStats'));
+    if (!playerStats) {
+        playerStats = {
+            crosses: randomStat(),
+            pass: randomStat(),
+            speed: randomStat(),
+            acceleration: randomStat(),
+            closeShot: randomStat(),
+            longShot: randomStat()
+        };
+        localStorage.setItem('fcPlayerStats', JSON.stringify(playerStats));
+    }
+    
+    const ratingNames = {
+        crosses: 'НАВЕСЫ',
+        pass: 'ПАС',
+        speed: 'СКОРОСТЬ',
+        acceleration: 'УСКОРЕНИЕ',
+        closeShot: 'БЛИЖНИЙ УДАР',
+        longShot: 'ДАЛЬНИЙ УДАР'
+    };
+    
+    function updateRatingDisplay() {
+        const container = document.getElementById('ratingStats');
+        container.innerHTML = '';
+        
+        for (const [key, value] of Object.entries(playerStats)) {
+            const div = document.createElement('div');
+            div.className = 'rating-stat';
+            div.innerHTML = `
+                <div class="rating-stat-name">${ratingNames[key]}</div>
+                <div class="rating-stat-value">${value}</div>
+            `;
+            container.appendChild(div);
+        }
+        
+        const total = Object.values(playerStats).reduce((sum, val) => sum + val, 0);
+        const overall = Math.round(total / 6);
+        document.getElementById('overallRating').textContent = overall;
+    }
+    
+    // ========== ИГРОВАЯ ЛОГИКА ==========
+    const months = [
+        'ЯНВАРЬ', 'ФЕВРАЛЬ', 'МАРТ', 'АПРЕЛЬ', 'МАЙ', 'ИЮНЬ',
+        'ИЮЛЬ', 'АВГУСТ', 'СЕНТЯБРЬ', 'ОКТЯБРЬ', 'НОЯБРЬ', 'ДЕКАБРЬ'
+    ];
+    
+    let currentMonth = 0;
+    let currentMatch = 0;
+    let goals = 0;
+    let assists = 0;
+    let cleanSheets = 0;
+    let matches = [];
+    
+    function loadGame() {
+        const saved = localStorage.getItem('fcSeasonData');
+        if (saved) {
+            const data = JSON.parse(saved);
+            currentMonth = data.currentMonth;
+            currentMatch = data.currentMatch;
+            goals = data.goals;
+            assists = data.assists;
+            cleanSheets = data.cleanSheets;
+            matches = data.matches;
+        } else {
+            resetSeason();
+        }
+        updateUI();
+    }
+    
+    function resetSeason() {
+        currentMonth = 0;
+        currentMatch = 0;
+        goals = 0;
+        assists = 0;
+        cleanSheets = 0;
+        matches = [];
+        for (let i = 0; i < 12; i++) {
+            matches[i] = [];
+            for (let j = 0; j < 4; j++) {
+                matches[i][j] = null;
+            }
+        }
+        saveGame();
+    }
+    
+    function saveGame() {
+        const data = { currentMonth, currentMatch, goals, assists, cleanSheets, matches };
+        localStorage.setItem('fcSeasonData', JSON.stringify(data));
+    }
+    
+    function simulateMatch() {
+        if (currentMonth >= 12) {
+            alert('Сезон завершен! Начните новый сезон в главном меню.');
+            return;
+        }
+        
+        if (currentMatch >= 4) {
+            currentMonth++;
+            currentMatch = 0;
+            if (currentMonth >= 12) {
+                showEndOfSeasonAwards();
+                return;
+            }
+            saveGame();
+            updateUI();
+            return;
+        }
+        
+        const playerGoals = Math.floor(Math.random() * 3) + 1;
+        const opponentGoals = Math.floor(Math.random() * 2);
+        const hasAssist = Math.random() > 0.5;
+        const isCleanSheet = opponentGoals === 0;
+        
+        goals += playerGoals;
+        if (hasAssist && playerGoals > 0) assists += Math.min(playerGoals, 2);
+        if (isCleanSheet) cleanSheets++;
+        
+        matches[currentMonth][currentMatch] = {
+            goals: playerGoals,
+            opponent: opponentGoals,
+            win: playerGoals > opponentGoals
+        };
+        
+        currentMatch++;
+        saveGame();
+        updateUI();
+        
+        if (currentMatch === 4) {
+            setTimeout(() => simulateMatch(), 200);
+        }
+    }
+    
+    function showEndOfSeasonAwards() {
+        const ballonDor = goals + assists > 25 ? 'ВАШ ИГРОК' : ['Мбаппе', 'Холанд', 'Винисиус'][Math.floor(Math.random() * 3)];
+        const goldenBoot = goals > 15 ? 'ВАШ ИГРОК' : ['Мбаппе', 'Холанд', 'Кейн'][Math.floor(Math.random() * 3)];
+        const goldenGlove = cleanSheets > 8 ? 'ВАШ ИГРОК' : ['Куртуа', 'Алиссон', 'Эдерсон'][Math.floor(Math.random() * 3)];
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <h2>🏆 НАГРАДЫ СЕЗОНА 🏆</h2>
+                <div class="award-item">
+                    <div class="award-name">⚽ ЗОЛОТОЙ МЯЧ</div>
+                    <div class="award-winner">${ballonDor}</div>
+                </div>
+                <div class="award-item">
+                    <div class="award-name">👟 ЗОЛОТАЯ БУТСА</div>
+                    <div class="award-winner">${goldenBoot} (${goals} голов)</div>
+                </div>
+                <div class="award-item">
+                    <div class="award-name">🧤 ЛУЧШИЙ ВРАТАРЬ</div>
+                    <div class="award-winner">${goldenGlove} (${cleanSheets} сухих матчей)</div>
+                </div>
+                <button class="close-modal" onclick="this.closest('.modal').remove(); resetSeason(); updateUI();">🔄 НОВЫЙ СЕЗОН</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    function updateUI() {
+        document.getElementById('monthDisplay').textContent = months[currentMonth] || 'СЕЗОН ЗАВЕРШЕН';
+        document.getElementById('progressDisplay').textContent = `Матчи: ${currentMatch} / 4`;
+        document.getElementById('goalsStat').textContent = goals;
+        document.getElementById('assistsStat').textContent = assists;
+        document.getElementById('cleanSheetsStat').textContent = cleanSheets;
+        
+        const grid = document.getElementById('matchesGrid');
+        grid.innerHTML = '';
+        
+        if (currentMonth < 12) {
+            for (let i = 0; i < 4; i++) {
+                const match = matches[currentMonth]?.[i];
+                const card = document.createElement('div');
+                card.className = `match-card ${match ? 'played' : ''}`;
+                card.innerHTML = `
+                    <div class="match-number">МАТЧ ${i + 1}</div>
+                    ${match ? `
+                        <div class="match-result">${match.win ? '🏆 ПОБЕДА' : '💔 ПОРАЖЕНИЕ'}</div>
+                        <div class="match-score">${match.goals} : ${match.opponent}</div>
+                    ` : `
+                        <div class="match-result">⏳ ОЖИДАНИЕ</div>
+                        <div class="match-score">- : -</div>
+                    `}
+                `;
+                grid.appendChild(card);
+            }
+        }
+        
+        updateCalendar();
+        
+        const btn = document.getElementById('simulateBtn');
+        if (currentMonth >= 12) {
+            btn.disabled = true;
+            btn.textContent = 'СЕЗОН ЗАВЕРШЕН';
+        } else if (currentMatch === 4) {
+            btn.textContent = '➡️ СЛЕДУЮЩИЙ МЕСЯЦ';
+        } else {
+            btn.textContent = '▶ СЫГРАТЬ МАТЧ';
+        }
+    }
+    
+    function updateCalendar() {
+        const container = document.getElementById('calendarMonths');
+        container.innerHTML = '';
+        
+        for (let i = 0; i < months.length; i++) {
+            const playedMatches = matches[i] ? matches[i].filter(m => m !== null).length : 0;
+            const isCompleted = playedMatches === 4;
+            const isCurrent = i === currentMonth;
+            
+            const div = document.createElement('div');
+            div.className = `calendar-month ${isCurrent ? 'current' : ''} ${isCompleted ? 'completed' : ''}`;
+            div.innerHTML = `
+                <div class="month-name">${months[i]}</div>
+                <div class="month-progress">${playedMatches}/4 матчей</div>
+                <div class="month-status">${isCompleted ? '✅ ЗАВЕРШЕН' : isCurrent ? '🎮 ТЕКУЩИЙ' : i < currentMonth ? '✅ ПРОЙДЕН' : '🔒 НЕ ДОСТУПЕН'}</div>
+            `;
+            if (i <= currentMonth) {
+                div.style.cursor = 'pointer';
+                div.onclick = () => {
+                    if (i !== currentMonth && confirm(`Перейти к ${months[i]}?`)) {
+                        currentMonth = i;
+                        currentMatch = 0;
+                        saveGame();
+                        updateUI();
+                    }
+                };
+            }
+            container.appendChild(div);
+        }
+    }
+    
+    // ========== МУЗЫКА ==========
+    const musicBtn = document.getElementById('musicBtn');
+    const bgMusic = document.getElementById('bgMusic');
+    let musicStarted = false;
+    
+    musicBtn.addEventListener('click', () => {
+        if (!musicStarted) {
+            bgMusic.play().then(() => {
+                musicStarted = true;
+                musicBtn.classList.add('hidden');
+            }).catch(() => alert('Нажмите ещё раз'));
+        }
+    });
+    
+    document.getElementById('simulateBtn').addEventListener('click', simulateMatch);
+    document.getElementById('backToMenuBtn').addEventListener('click', () => {
+        window.location.href = 'index.html';
+    });
+    
+    updateRatingDisplay();
+    loadGame();
+</script>
+</body>
+</html>
